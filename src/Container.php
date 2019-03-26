@@ -4,9 +4,12 @@ namespace Planck;
 
 
 use InvalidArgumentException;
+use Planck\Exception\DependencyException;
 use Planck\Exception\NotFoundException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use ReflectionClass;
+use ReflectionFunction;
 use SplObjectStorage;
 
 class Container implements ContainerInterface
@@ -15,6 +18,8 @@ class Container implements ContainerInterface
 
     protected $preserved;
     protected $factories;
+
+    protected $autowired = [];
     //    protected $resolvedEntries = [];
 
     /**
@@ -142,8 +147,96 @@ class Container implements ContainerInterface
     }
 
     /**
+     * @param $id
+     * @param $callable
+     *
+     * @return mixed
+     * @throws \Planck\Exception\NotFoundException
+     */
+    public function extend($id, $callable)
+    {
+        if (!$this->has($id)) {
+            throw new NotFoundException(sprintf('Identifier "%s" is not defined.', $id));
+        }
+
+        /** We cant extend an array-like callable, so we need an actual closure or invokable object */
+        if (!is_object($callable) || !method_exists($callable, '__invoke')) {
+            throw new InvalidArgumentException('Extension service definition is not a Closure or invokable object.');
+        }
+
+        $factory = $this->values[$id];
+
+        /**
+         * Wraps (again) the already wrapped factory to "hide" the previous requirement, this gets "lexical scoped" (nice)
+         * to the actual factory so there must only be passed a fitting implementation of the PSR-11-Container Interface
+         *
+         * @param \Psr\Container\ContainerInterface $container
+         *
+         * @return mixed
+         */
+        $extended = function (\Psr\Container\ContainerInterface $container) use ($callable, $factory) {
+            # if the entry to extend is not a callable, we pass it as is
+            $previous = is_callable($factory) ? $factory($container) : $factory;
+
+            return $callable($container, $previous);
+        };
+
+        if (is_object($factory) && $this->factories->contains($factory)) {
+            $this->factories->detach($factory);
+            $this->factories->attach($extended);
+        }
+
+        $this->values[$id] = $extended;
+
+        return $this->values[$id];
+    }
+
+    /**
+     * @param string|callable $wireable
+     *
+     * @return callable
+     * @throws \ReflectionException
+     */
+    public function autowire($wireable): callable
+    {
+        if (!(is_string($wireable) && class_exists($wireable)) && !(is_object($wireable) || method_exists($wireable, '__invoke'))) {
+            throw new InvalidArgumentException(sprintf('parameter 1 must be a full qualified classname or function'));
+        }
+
+        if (is_string($wireable)) {
+            $reflection = new ReflectionClass($wireable);
+            $parameters = $reflection->getConstructor()->getParameters();
+        } else {
+            $reflection = new ReflectionFunction($wireable);
+            $parameters = $reflection->getParameters();
+        }
+
+        return function (\Psr\Container\ContainerInterface $container) use ($reflection, $parameters) {
+            $params = [];
+
+            foreach ($parameters as $i => $parameter) {
+
+                $parameterClass = $parameter->getClass();
+                if ($parameterClass === null) {
+                    throw new DependencyException(sprintf('%s could not be resolved', $parameter->getName()));
+                }
+
+                if ($container->has($parameterClass->getName())) {
+                    $params[] = $container->get($parameterClass->getName());
+                } else {
+                    throw new DependencyException(sprintf('Unable to resolve param #%s - %s', $i, $parameterClass->getName()));
+                }
+            }
+
+            return $reflection instanceof ReflectionClass ? $reflection->newInstanceArgs($params) : $reflection->invokeArgs($params);
+        };
+    }
+
+    /**
      * @param \Interop\Container\ServiceProviderInterface[] $providers
      * @param mixed[]                                       $values
+     *
+     * @throws \Planck\Exception\NotFoundException
      */
     protected function register(array $providers, array $values): void
     {
@@ -204,43 +297,5 @@ class Container implements ContainerInterface
                 }
             }
         }
-    }
-
-    public function extend($id, $callable)
-    {
-        if (!$this->has($id)) {
-            throw new NotFoundException(sprintf('Identifier "%s" is not defined.', $id));
-        }
-
-        /** We cant extend an array-like callable, so we need an actual closure or invokable object */
-        if (!is_object($callable) || !method_exists($callable, '__invoke')) {
-            throw new InvalidArgumentException('Extension service definition is not a Closure or invokable object.');
-        }
-
-        $factory = $this->values[$id];
-
-        /**
-         * Wraps (again) the already wrapped factory to "hide" the previous requirement, this gets "lexical scoped" (nice)
-         * to the actual factory so there must only be passed a fitting implementation of the PSR-11-Container Interface
-         *
-         * @param \Psr\Container\ContainerInterface $container
-         *
-         * @return mixed
-         */
-        $extended = function (\Psr\Container\ContainerInterface $container) use ($callable, $factory) {
-            # if the entry to extend is not a callable, we pass it as is
-            $previous = is_callable($factory) ? $factory($container) : $factory;
-
-            return $callable($container, $previous);
-        };
-
-        if (is_object($factory) && $this->factories->contains($factory)) {
-            $this->factories->detach($factory);
-            $this->factories->attach($extended);
-        }
-
-        $this->values[$id] = $extended;
-
-        return $this->values[$id];
     }
 }

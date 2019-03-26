@@ -4,6 +4,7 @@
 use Interop\Container\ServiceProviderInterface;
 use PHPUnit\Framework\TestCase;
 use Planck\Container;
+use Planck\Exception\DependencyException;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -232,6 +233,7 @@ class ContainerTest extends TestCase
     public function testFactoryMethodThrowsInvalidArgumentExceptionIfNonInvokablePassed(): void
     {
         $this->expectException(InvalidArgumentException::class);
+
         (new Container)->factory([
             new class
             {
@@ -243,191 +245,105 @@ class ContainerTest extends TestCase
         ]);
     }
 
-    //
-    //    public function testPreservedFunctionIsNotTreatedAsFactory()
-    //    {
-    //        $preserved = function ($foo, $bar) {
-    //            return $foo + $bar;
-    //        };
-    //
-    //        $container = new Container;
-    //        $container->set('nonFactoryFunction', preserve($preserved));
-    //
-    ////        var_dump($container->get('nonFactoryFunction'));
-    //
-    //        $this->assertSame($preserved, $container->get('nonFactoryFunction'));
-    //    }
-    //
-    //    public function testTryingToPreserveNonCallableObjectRaisesInvalidArgumentException()
-    //    {
-    //        $this->expectException(InvalidArgumentException::class);
-    //
-    //        $container = new Container;
-    //        $container->set('nonFactoryFunction', $container->preserve('non callable object'));
-    //    }
-    //
-    //    public function testUnsetRemovesAllRemainingsOfEntry()
-    //    {
-    //        $this->expectException(NotFoundException::class);
-    //
-    //        $container = new Container;
-    //        $container->set('factory', function (ContainerInterface $container) {
-    //            return 'foo';
-    //        });
-    //        $container->set('preserved', $container->preserve(function (ContainerInterface $container) {
-    //            return 'foo';
-    //        }));
-    //
-    //        $container->unset('factory');
-    //        $container->unset('preserved');
-    //
-    //        $container->get('factory');
-    //        $container->get('preserved');
-    //    }
-    //
-    //    /**
-    //     * @dataProvider valueProvider
-    //     */
-    //    public function testSetMethodSetsValue($value, $expected)
-    //    {
-    //        $container = new Container;
-    //        $container->set('value', $value);
-    //
-    //        $this->assertSame($expected, $container->get('value'));
-    //    }
-    //
-    //    /**
-    //     * @covers \Planck\Container::register
-    //     * @covers \Planck\Container::get
-    //     */
-    //    public function testContainerRegistersFactories()
-    //    {
-    //        $object = new stdClass;
-    //
-    //        $provider = $this->getMockBuilder(ServiceProviderInterface::class)->setMethods([
-    //            'getFactories',
-    //            'getExtensions',
-    //        ])->getMock();
-    //
-    //        $provider->expects($this->any())->method('getFactories')->willReturn([
-    //            'value1' => function () use ($object) {
-    //                return $object;
-    //            },
-    //        ]);
-    //
-    //        $provider->expects($this->any())->method('getExtensions')->willReturn([]);
-    //
-    //        $this->assertSame($object, (new Container([$provider]))->get('value1'));
-    //    }
-    //
-    //    /**
-    //     * @covers \Planck\Container::register
-    //     * @covers \Planck\Container::extend
-    //     * @covers \Planck\Container::get
-    //     */
-    //    public function testContainerRegistersExtensions()
-    //    {
-    //        $provider = $this->getMockBuilder(ServiceProviderInterface::class)->setMethods([
-    //            'getFactories',
-    //            'getExtensions',
-    //        ])->getMock();
-    //
-    //        $provider->expects($this->any())->method('getFactories')->willReturn([
-    //            'ext' => function () {
-    //                return ['hello'];
-    //            },
-    //        ]);
-    //
-    //        $provider->expects($this->any())->method('getExtensions')->willReturn([
-    //            'new' => function () {
-    //                return 123;
-    //            },
-    //            'ext' => function (ContainerInterface $container, ?array $array) {
-    //                $array[] = 'world';
-    //
-    //                return $array;
-    //            },
-    //        ]);
-    //
-    //        $this->assertEquals(['hello', 'world'], (new Container([$provider]))->get('ext'));
-    //        $this->assertSame(123, (new Container([$provider]))->get('new'));
-    //    }
-    //
-    //    /**
-    //     * @covers \Planck\Container::register
-    //     * @covers \Planck\Container::extend
-    //     */
-    //    public function testContainerThrowsInvalidArgumentExceptionTryingToRegistersNonCallableExtensionFactory()
-    //    {
-    //        $this->expectException(InvalidArgumentException::class);
-    //
-    //        $provider = $this->getMockBuilder(ServiceProviderInterface::class)->setMethods([
-    //            'getFactories',
-    //            'getExtensions',
-    //        ])->getMock();
-    //
-    //        $provider->expects($this->any())->method('getFactories')->willReturn([]);
-    //        $provider->expects($this->any())->method('getExtensions')->willReturn([
-    //            'new' => 123,
-    //        ]);
-    //
-    //        new Container([$provider]);
-    //    }
-    //
-    //    /**
-    //     * @covers \Planck\Container::register
-    //     */
-    //    public function testContainerThrowsInvalidArgumentExceptionTryingToRegisterNonCallableFactory()
-    //    {
-    //        $this->expectException(InvalidArgumentException::class);
-    //
-    //        $provider = $this->getMockBuilder(ServiceProviderInterface::class)->setMethods([
-    //            'getFactories',
-    //            'getExtensions',
-    //        ])->getMock();
-    //
-    //        $provider->expects($this->any())->method('getFactories')->willReturn([
-    //            'id' => '3424fde',
-    //        ]);
-    //
-    //        new Container([$provider]);
-    //    }
-    //
-    //    /**
-    //     * @covers \Planck\Container::__construct
-    //     */
-    //    public function testCanBeInstanciatedWithoutParameters()
-    //    {
-    //        $this->assertInstanceOf(ContainerInterface::class, new Container());
-    //    }
-    //
-    //    public function testGetThrowsNotFoundExceptionIfUnknownIdPassedToGet()
-    //    {
-    //        $this->expectException(NotFoundException::class);
-    //
-    //        (new Container())->get('unknownId');
-    //    }
-    //
-    //    /**
-    //     * @dataProvider valueProvider
-    //     *
-    //     * @param $key
-    //     * @param $value
-    //     * @param $expected
-    //     */
-    //    public function testGetProvidesValue($value, $expected)
-    //    {
-    //        $actual = (new Container([], ['value' => $value]))->get('value');
-    //        $this->assertSame($expected, $actual);
-    //    }
-    //
-    //    public function testHasReturnsFalseIfUnknownId()
-    //    {
-    //        $this->assertEquals(false, (new Container())->has('unknownId'));
-    //    }
-    //
-    //    public function testHasReturnsTrueIfKnownId()
-    //    {
-    //        $this->assertEquals(true, (new Container([], ['knownId' => 123]))->has('knownId'));
-    //    }
+    /**
+     * @throws \ReflectionException
+     */
+    public function testAutowiringThrowsDependencyExceptionIfUnableToResolve(): void
+    {
+        $this->expectException(DependencyException::class);
+        $this->expectExceptionMessageRegExp('/^Unable to resolve param/');
+
+        $class = get_class(new class(new stdClass())
+        {
+            public $class;
+
+            public function __construct(stdClass $class)
+            {
+                $this->class = $class;
+            }
+        });
+
+        $container = new Container();
+        $container->autowire($class)($container);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testAutowiringClassDoesWork(): void
+    {
+        $class = get_class(new class(new stdClass())
+        {
+            public $class;
+
+            public function __construct(stdClass $class)
+            {
+                $this->class = $class;
+            }
+        });
+
+        $container = new Container();
+        $container->set(stdClass::class, new stdClass());
+        $container->set('autowired', $container->autowire($class));
+
+        $this->assertInstanceOf(stdClass::class, $container->get('autowired')->class);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testAutowiringFunctionDoesWork(): void
+    {
+        $function = function (stdClass $class) {
+            return $class;
+        };
+
+        $container = new Container([], [
+            stdClass::class => new stdClass(),
+        ]);
+
+        $container->set('autowiredFunction', $container->autowire($function));
+
+        $this->assertInstanceOf(stdClass::class, $container->get('autowiredFunction'));
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testAutowiredCanBeUtilizedAsFactory(): void
+    {
+        $func = function (stdClass $class) {
+            $class->id = random_int(1000, 9999);
+
+            return $class;
+        };
+
+        $container = new Container();
+        $container->set(stdClass::class, new stdClass());
+        $container->set('func', $container->factory($container->autowire($func)));
+
+        $this->assertNotEquals($container->get('func')->id, $container->get('func')->id);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testAutowireThrowsInvalidArgumentExceptionIfNonWireablePassed(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new Container())->autowire('lol');
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testAutowireThrowsDependencyExceptionIfParameterClassUnresolvable(): void
+    {
+        $this->expectException(DependencyException::class);
+
+        $container = new Container();
+        $container->autowire(function (string $class) {
+        })($container);
+    }
 }
