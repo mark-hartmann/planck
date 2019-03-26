@@ -247,6 +247,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
+     * @throws \Planck\Exception\NotFoundException
      */
     public function testAutowiringThrowsDependencyExceptionIfUnableToResolve(): void
     {
@@ -269,6 +270,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
+     * @throws \Planck\Exception\NotFoundException
      */
     public function testAutowiringClassDoesWork(): void
     {
@@ -291,6 +293,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
+     * @throws \Planck\Exception\NotFoundException
      */
     public function testAutowiringFunctionDoesWork(): void
     {
@@ -309,6 +312,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
+     * @throws \Planck\Exception\NotFoundException
      */
     public function testAutowiredCanBeUtilizedAsFactory(): void
     {
@@ -327,6 +331,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
+     * @throws \Planck\Exception\NotFoundException
      */
     public function testAutowireThrowsInvalidArgumentExceptionIfNonWireablePassed(): void
     {
@@ -337,6 +342,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
+     * @throws \Planck\Exception\NotFoundException
      */
     public function testAutowireThrowsDependencyExceptionIfParameterClassUnresolvable(): void
     {
@@ -345,5 +351,23 @@ class ContainerTest extends TestCase
         $container = new Container();
         $container->autowire(function (string $class) {
         })($container);
+    }
+
+    /**
+     * @throws \Planck\Exception\NotFoundException
+     * @throws \ReflectionException
+     */
+    public function testAutowireResolvesByParameterNameIfOptionIsSet(): void
+    {
+        $container = new Container([], [
+            'foo' => 'bar'
+        ]);
+        $container->set('resolveByName', $container->autowire(function (string $foo) {
+            return $foo;
+        }, true));
+
+        var_dump($container->get('resolveByName'));
+
+        $this->assertEquals('bar', $container->get('resolveByName'));
     }
 }

@@ -15,18 +15,16 @@ use SplObjectStorage;
 class Container implements ContainerInterface
 {
     protected $values = [];
-
     protected $preserved;
     protected $factories;
-
-    protected $autowired = [];
-    //    protected $resolvedEntries = [];
 
     /**
      * Container constructor.
      *
      * @param \Interop\Container\ServiceProviderInterface[] $providers
      * @param mixed[]                                       $values
+     *
+     * @throws \Planck\Exception\NotFoundException
      */
     public function __construct(array $providers = [], array $values = [])
     {
@@ -192,12 +190,13 @@ class Container implements ContainerInterface
     }
 
     /**
-     * @param string|callable $wireable
+     * @param string|callable $wireable      Must be a fully-qualified-name for a class or a (anonymous) function
+     * @param bool            $resolveByName If true, parameters will be resolved by name if not type-hinted
      *
      * @return callable
      * @throws \ReflectionException
      */
-    public function autowire($wireable): callable
+    public function autowire($wireable, $resolveByName = false): callable
     {
         if (!(is_string($wireable) && class_exists($wireable)) && !(is_object($wireable) || method_exists($wireable, '__invoke'))) {
             throw new InvalidArgumentException(sprintf('parameter 1 must be a full qualified classname or function'));
@@ -211,21 +210,34 @@ class Container implements ContainerInterface
             $parameters = $reflection->getParameters();
         }
 
-        return function (\Psr\Container\ContainerInterface $container) use ($reflection, $parameters) {
+        /**
+         * If the autowired entry is used as a factory, repeatedly instantiating a reflection class would take
+         * too much memory and time. Therefore, the instances are created once and passed to the
+         * service factory via lexical scoping.
+         *
+         * @param \Psr\Container\ContainerInterface $container
+         *
+         * @return mixed|object
+         */
+        return function (\Psr\Container\ContainerInterface $container) use ($reflection, $parameters, $resolveByName) {
             $params = [];
 
             foreach ($parameters as $i => $parameter) {
-
                 $parameterClass = $parameter->getClass();
-                if ($parameterClass === null) {
-                    throw new DependencyException(sprintf('%s could not be resolved', $parameter->getName()));
-                }
 
-                if ($container->has($parameterClass->getName())) {
+                if ($parameterClass === null) {
+                    if ($resolveByName === true && $this->has($parameter->getName())) {
+                        $params[] = $this->get($parameter->getName());
+
+                    } else {
+                        throw new DependencyException(sprintf('%s could not be resolved', $parameter->getName()));
+                    }
+                } elseif ($container->has($parameterClass->getName())) {
                     $params[] = $container->get($parameterClass->getName());
                 } else {
                     throw new DependencyException(sprintf('Unable to resolve param #%s - %s', $i, $parameterClass->getName()));
                 }
+
             }
 
             return $reflection instanceof ReflectionClass ? $reflection->newInstanceArgs($params) : $reflection->invokeArgs($params);
