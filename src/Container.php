@@ -1,11 +1,11 @@
 <?php
 
-namespace Planck;
+namespace Hartmann\Planck;
 
 
+use Hartmann\Planck\Exception\DependencyException;
+use Hartmann\Planck\Exception\NotFoundException;
 use InvalidArgumentException;
-use Planck\Exception\DependencyException;
-use Planck\Exception\NotFoundException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use ReflectionClass;
@@ -23,8 +23,6 @@ class Container implements ContainerInterface
      *
      * @param \Interop\Container\ServiceProviderInterface[] $providers
      * @param mixed[]                                       $values
-     *
-     * @throws \Planck\Exception\NotFoundException
      */
     public function __construct(array $providers = [], array $values = [])
     {
@@ -39,9 +37,9 @@ class Container implements ContainerInterface
      *
      * @param string $id Identifier of the entry to look for.
      *
-     * @return mixed Entry.
-     * @throws ContainerExceptionInterface Error while retrieving the entry.
+     * @return mixed The requested entry.
      *
+     * @throws ContainerExceptionInterface Error while retrieving the entry.
      * @throws NotFoundExceptionInterface  No entry was found for **this** identifier.
      */
     public function get($id)
@@ -52,9 +50,8 @@ class Container implements ContainerInterface
 
         /**
          * A normal entry (no object, preserved callable or object without __invoke method) gets returned immediately
-         * @todo Check if !method_exists could be replaced by a simple !is_callable
          */
-        if (!is_object($this->values[$id]) || $this->preserved->contains($this->values[$id]) || !method_exists($this->values[$id], '__invoke')) {
+        if (!is_object($this->values[$id]) || $this->preserved->contains($this->values[$id]) || !is_callable($this->values[$id])) {
             return $this->values[$id];
         }
 
@@ -149,7 +146,6 @@ class Container implements ContainerInterface
      * @param $callable
      *
      * @return mixed
-     * @throws \Planck\Exception\NotFoundException
      */
     public function extend($id, $callable)
     {
@@ -191,7 +187,8 @@ class Container implements ContainerInterface
 
     /**
      * @param string|callable $wireable      Must be a fully-qualified-name for a class or a (anonymous) function
-     * @param bool            $resolveByName If true, parameters will be resolved by name if not type-hinted
+     * @param bool            $resolveByName If true, parameters will be resolved by name if not type-hinted or hinted
+     *                                       by scalar types (int/string/float/(array)/bool)
      *
      * @return callable
      * @throws \ReflectionException
@@ -213,7 +210,7 @@ class Container implements ContainerInterface
         /**
          * If the autowired entry is used as a factory, repeatedly instantiating a reflection class would take
          * too much memory and time. Therefore, the instances are created once and passed to the
-         * service factory via lexical scoping.
+         * service factory via use().
          *
          * @param \Psr\Container\ContainerInterface $container
          *
@@ -247,8 +244,6 @@ class Container implements ContainerInterface
     /**
      * @param \Interop\Container\ServiceProviderInterface[] $providers
      * @param mixed[]                                       $values
-     *
-     * @throws \Planck\Exception\NotFoundException
      */
     protected function register(array $providers, array $values): void
     {

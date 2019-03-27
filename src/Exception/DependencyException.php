@@ -1,10 +1,11 @@
 <?php
 
-namespace Planck\Exception;
+namespace Hartmann\Planck\Exception;
 
-use Exception;
 
-class DependencyException extends Exception
+use RuntimeException;
+
+class DependencyException extends RuntimeException
 {
 
 }

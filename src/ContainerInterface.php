@@ -1,6 +1,6 @@
 <?php
 
-namespace Planck;
+namespace Hartmann\Planck;
 
 interface ContainerInterface extends \Psr\Container\ContainerInterface
 {

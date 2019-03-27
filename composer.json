@@ -10,7 +10,7 @@
   ],
   "autoload": {
     "psr-4": {
-      "Planck\\": "src\\"
+      "Hartmann\\Planck\\": "src\\"
     }
   },
   "require": {

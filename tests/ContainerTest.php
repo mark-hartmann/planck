@@ -1,10 +1,10 @@
 <?php
 
 
+use Hartmann\Planck\Container;
+use Hartmann\Planck\Exception\DependencyException;
 use Interop\Container\ServiceProviderInterface;
 use PHPUnit\Framework\TestCase;
-use Planck\Container;
-use Planck\Exception\DependencyException;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -30,6 +30,9 @@ class ContainerTest extends TestCase
         ];
     }
 
+    /**
+     * @throws \Hartmann\Planck\Exception\NotFoundException
+     */
     public function testGetReturnsCorrectValue(): void
     {
         $container = new Container([], [
@@ -92,6 +95,9 @@ class ContainerTest extends TestCase
         $container->get('preserved');
     }
 
+    /**
+     * @throws \Hartmann\Planck\Exception\NotFoundException
+     */
     public function testRegisterSuccessfullyAddsServiceFactories(): void
     {
         $provider = new class implements ServiceProviderInterface
@@ -117,6 +123,9 @@ class ContainerTest extends TestCase
         $this->assertIsString($container->get('foo'));
     }
 
+    /**
+     * @throws \Hartmann\Planck\Exception\NotFoundException
+     */
     public function testRegisterSuccessfullyAddsServiceExtensions(): void
     {
         $provider = new class implements ServiceProviderInterface
@@ -148,7 +157,7 @@ class ContainerTest extends TestCase
     }
 
     /**
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testAlreadyDefinedEntryCanBeExtended(): void
     {
@@ -164,7 +173,7 @@ class ContainerTest extends TestCase
     }
 
     /**
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testExtendThrowsNotFoundExceptionIfUnknownId(): void
     {
@@ -175,7 +184,7 @@ class ContainerTest extends TestCase
     }
 
     /**
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testExtendThrowsInvalidArgumentExceptionIfNonCallable(): void
     {
@@ -187,7 +196,7 @@ class ContainerTest extends TestCase
     }
 
     /**
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testExtendingExistingFacotry(): void
     {
@@ -210,6 +219,8 @@ class ContainerTest extends TestCase
      * @dataProvider preserveProvider
      *
      * @param callable $function
+     *
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testPreserveWorksWithFunctionsAndAnonymousClasses($function): void
     {
@@ -247,7 +258,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testAutowiringThrowsDependencyExceptionIfUnableToResolve(): void
     {
@@ -270,7 +281,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testAutowiringClassDoesWork(): void
     {
@@ -293,7 +304,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testAutowiringFunctionDoesWork(): void
     {
@@ -312,7 +323,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testAutowiredCanBeUtilizedAsFactory(): void
     {
@@ -331,7 +342,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testAutowireThrowsInvalidArgumentExceptionIfNonWireablePassed(): void
     {
@@ -342,7 +353,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \ReflectionException
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      */
     public function testAutowireThrowsDependencyExceptionIfParameterClassUnresolvable(): void
     {
@@ -354,19 +365,17 @@ class ContainerTest extends TestCase
     }
 
     /**
-     * @throws \Planck\Exception\NotFoundException
+     * @throws \Hartmann\Planck\Exception\NotFoundException
      * @throws \ReflectionException
      */
     public function testAutowireResolvesByParameterNameIfOptionIsSet(): void
     {
         $container = new Container([], [
-            'foo' => 'bar'
+            'foo' => 'bar',
         ]);
         $container->set('resolveByName', $container->autowire(function (string $foo) {
             return $foo;
         }, true));
-
-        var_dump($container->get('resolveByName'));
 
         $this->assertEquals('bar', $container->get('resolveByName'));
     }
