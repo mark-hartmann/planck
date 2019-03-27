@@ -2,6 +2,7 @@
   "name": "hartmann/planck",
   "description": "minimalistic, PSR-11(+) conformant, provider-based container",
   "type": "library",
+  "license": "MIT",
   "authors": [
     {
       "name": "Mark Hartmann",
