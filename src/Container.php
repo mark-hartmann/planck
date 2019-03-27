@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use ReflectionClass;
+use ReflectionException;
 use ReflectionFunction;
 use SplObjectStorage;
 
@@ -191,7 +192,6 @@ class Container implements ContainerInterface
      *                                       by scalar types (int/string/float/(array)/bool)
      *
      * @return callable
-     * @throws \ReflectionException
      */
     public function autowire($wireable, $resolveByName = false): callable
     {
@@ -199,13 +199,18 @@ class Container implements ContainerInterface
             throw new InvalidArgumentException(sprintf('parameter 1 must be a full qualified classname or function'));
         }
 
-        if (is_string($wireable)) {
-            $reflection = new ReflectionClass($wireable);
-            $parameters = $reflection->getConstructor()->getParameters();
-        } else {
-            $reflection = new ReflectionFunction($wireable);
-            $parameters = $reflection->getParameters();
+        try {
+            if (is_string($wireable)) {
+                $reflection = new ReflectionClass($wireable);
+                $parameters = $reflection->getConstructor()->getParameters();
+            } else {
+                $reflection = new ReflectionFunction($wireable);
+                $parameters = $reflection->getParameters();
+            }
+        } catch (ReflectionException $e) {
+            throw new DependencyException(sprintf('Class/Function %s could not be reflected', get_class($wireable)));
         }
+
 
         /**
          * If the autowired entry is used as a factory, repeatedly instantiating a reflection class would take
