@@ -81,7 +81,7 @@ $class = $container->get(stdClass::class);
 
 ## Defining Factory Services
 
-By default, each time you get a service, Pimple returns the **same instance**
+By default, each time you get a service, Planck returns the **same instance**
 of it. If you want a different instance to be returned for all calls, wrap your
 anonymous function with the `factory()` method
 
@@ -91,7 +91,7 @@ $container->set('factory', $container->factory(function (ContainerInterface $con
 }));
 ```
 
-Each call to ``$container->get(stdClass::class)`` now returns a new instance of stdClass.
+Each call to `$container->get(stdClass::class)` now returns a new instance of stdClass.
 
 ## Defining Parameters
 
