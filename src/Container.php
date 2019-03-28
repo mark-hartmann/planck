@@ -193,7 +193,7 @@ class Container implements ContainerInterface
      *
      * @return callable
      */
-    public function autowire($wireable, $resolveByName = false): callable
+    public function autowire($wireable, bool $resolveByName = false): callable
     {
         if (!(is_string($wireable) && class_exists($wireable)) && !(is_object($wireable) || method_exists($wireable, '__invoke'))) {
             throw new InvalidArgumentException(sprintf('parameter 1 must be a full qualified classname or function'));
