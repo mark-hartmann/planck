@@ -152,13 +152,48 @@ $container->set('autowired', $container->autowire(function (Foo $foo, Bar $bar) 
 ```
 
 The `autowire()` method has as second parameter
-`bool $resolveByName`. If `true` is passed to this parameter, parameters without type hinting or scalar type hints are resolved by their name.
+`array $parameters = []`.   
+If you know the `Container` is not able to resolve a parameter or you wish to pass your own value, you can easily do so:
 
 ```php
-$container->set('foo', new Foo());
-$container->set('bar', new Bar());
+class Foo {
+    ...
+}
 
-$container->set('autowired', $container->autowire(function ($foo, $bar) {
-    return ...
-}, true));
+$container->set(Foo::class, new Foo());
+$container->set('autowired', $container->autowire(function (Foo $foo, $bar) {
+    var_dump($foo) // object Foo
+    var_dump($bar) // string 'foo'
+}, ['bar' => 'foo']]));
+```
+
+Since version `1.0.3` it is possible to pass callables in form of arrays.  
+This allows to autowire static and non-static object methods, which can be useful for an incredible number of things, such as controllers:
+
+```php
+class HomeController {
+    
+    protected $logger
+    
+    public function __contruct(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+    }
+    
+    public function index(Request $request, Response $response): Response 
+    {
+        $this->logger->info('someone visited my site!');
+        
+        return $response->write('Hello');
+    }    
+}
+
+// adding the required classes to the container ...
+$container->autowire([HomeController::class, 'index']);
+```
+
+This also works with already instanciated objects:
+```
+// adding the required classes to the container ...
+$container->autowire([$homeControllerInstance, 'index']);
 ```
