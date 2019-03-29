@@ -11,6 +11,7 @@ use Psr\Container\NotFoundExceptionInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;
+use ReflectionMethod;
 use SplObjectStorage;
 
 class Container implements ContainerInterface
@@ -187,30 +188,29 @@ class Container implements ContainerInterface
     }
 
     /**
-     * @param string|callable $wireable      Must be a fully-qualified-name for a class or a (anonymous) function
-     * @param bool            $resolveByName If true, parameters will be resolved by name if not type-hinted or hinted
-     *                                       by scalar types (int/string/float/(array)/bool)
+     * @param string|callable $wireable   Must be a fully-qualified-name for a class or a callable
+     * @param array           $parameters Key-value paired array, key = parameter, value = value
      *
      * @return callable
      */
-    public function autowire($wireable, bool $resolveByName = false): callable
+    public function autowire($wireable, array $parameters = []): callable
     {
-        if (!(is_string($wireable) && class_exists($wireable)) && !(is_object($wireable) || method_exists($wireable, '__invoke'))) {
-            throw new InvalidArgumentException(sprintf('parameter 1 must be a full qualified classname or function'));
+        if (!is_callable($wireable) && !(is_string($wireable) && class_exists($wireable))) {
+            throw new InvalidArgumentException(sprintf('$wireable must be a full qualified classname or callable'));
         }
 
         try {
             if (is_string($wireable)) {
                 $reflection = new ReflectionClass($wireable);
-                $parameters = $reflection->getConstructor()->getParameters();
+                $reflectedParameters = $reflection->getConstructor()->getParameters();
             } else {
-                $reflection = new ReflectionFunction($wireable);
-                $parameters = $reflection->getParameters();
+                $reflection = is_array($wireable) ? new ReflectionMethod($wireable[0], $wireable[1]) : new ReflectionFunction($wireable);
+                $reflectedParameters = $reflection->getParameters();
             }
+
         } catch (ReflectionException $e) {
             throw new DependencyException(sprintf('Class/Function %s could not be reflected', get_class($wireable)));
         }
-
 
         /**
          * If the autowired entry is used as a factory, repeatedly instantiating a reflection class would take
@@ -221,28 +221,44 @@ class Container implements ContainerInterface
          *
          * @return mixed|object
          */
-        return function (\Psr\Container\ContainerInterface $container) use ($reflection, $parameters, $resolveByName) {
-            $params = [];
+        return function (\Psr\Container\ContainerInterface $container) use ($reflection, $reflectedParameters, $parameters, $wireable) {
 
-            foreach ($parameters as $i => $parameter) {
-                $parameterClass = $parameter->getClass();
+            $callParameters = [];
+            foreach ($reflectedParameters as $i => $parameterReflection) {
 
-                if ($parameterClass === null) {
-                    if ($resolveByName === true && $this->has($parameter->getName())) {
-                        $params[] = $this->get($parameter->getName());
+                /** If the parameters name is given in $parameters, it counts as resolved. */
+                if (isset($parameters[$parameterReflection->getName()])) {
+                    $callParameters[] = $parameters[$parameterReflection->getName()];
+
+                } else {
+                    $isHinted = $parameterReflection->getClass() !== null;
+                    $isOptional = $parameterReflection->isOptional();
+
+                    /** If the Parameter is hinted and the container holds the entry, use it */
+                    if($isHinted && $container->has($parameterClassName = $parameterReflection->getClass()->getName())) {
+                        $callParameters[] = $container->get($parameterClassName);
+
+                    /** The container does not hold the entry, but it is optional, so take the default */
+                    } elseif($isOptional) {
+                        $callParameters[] = $parameterReflection->getDefaultValue();
 
                     } else {
-                        throw new DependencyException(sprintf('%s could not be resolved', $parameter->getName()));
+                        throw new DependencyException(sprintf('%s could not be resolved', $parameterReflection->getName()));
                     }
-                } elseif ($container->has($parameterClass->getName())) {
-                    $params[] = $container->get($parameterClass->getName());
-                } else {
-                    throw new DependencyException(sprintf('Unable to resolve param #%s - %s', $i, $parameterClass->getName()));
                 }
-
             }
 
-            return $reflection instanceof ReflectionClass ? $reflection->newInstanceArgs($params) : $reflection->invokeArgs($params);
+            if ($reflection instanceof ReflectionFunction) {
+                return $reflection->invokeArgs($callParameters);
+            }
+
+            if ($reflection instanceof ReflectionMethod) {
+                /** @var \Hartmann\Planck\ContainerInterface $container */
+                $object = is_object($wireable[0]) ? $wireable[0] : $container->autowire($wireable[0])($container);
+                return $reflection->invokeArgs($reflection->isStatic() ? null : $object, $callParameters);
+            }
+
+            return $reflection->newInstanceArgs($callParameters);
         };
     }
 
