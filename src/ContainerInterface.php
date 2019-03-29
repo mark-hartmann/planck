@@ -37,4 +37,12 @@ interface ContainerInterface extends \Psr\Container\ContainerInterface
      * @return callable
      */
     public function factory(callable $callable): callable;
+
+    /**
+     * @param string|callable $wireable   Must be a fully-qualified-name for a class or a callable
+     * @param array           $parameters Key-value paired array, key = parameter, value = value
+     *
+     * @return callable
+     */
+    public function autowire($wireable, array $parameters = []): callable;
 }
