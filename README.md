@@ -1,9 +1,9 @@
-# Plack
+# Planck
 
-Plack is a minimalistic dependency injection container with [PSR-11](https://www.php-fig.org/psr/psr-11/)[+](https://github.com/container-interop/service-provider) support, (heavily) inspired by Pimple/Simplex. For now, i even use most of their documentation, but i'll change that later.
+Planck is a minimalistic dependency injection container with [PSR-11](https://www.php-fig.org/psr/psr-11/)[+](https://github.com/container-interop/service-provider) support, (heavily) inspired by Pimple/Simplex. For now, i even use most of their documentation, but i'll change that later.
 
 
-- `Hartmann\Plack\Container` implements [`ContainerInterface`](https://github.com/container-interop/container-interop/blob/master/src/Interop/Container/ContainerInterface.php) and fully supports container-interop's [`ServiceProviderInterface`](https://github.com/container-interop/service-provider/blob/master/src/ServiceProviderInterface.php)
+- `Hartmann\Planck\Container` implements [`ContainerInterface`](https://github.com/container-interop/container-interop/blob/master/src/Interop/Container/ContainerInterface.php) and fully supports container-interop's [`ServiceProviderInterface`](https://github.com/container-interop/service-provider/blob/master/src/ServiceProviderInterface.php)
 
     - `$container->extend()` 
         - Can be used to extend scalar values, factories and services
