@@ -233,14 +233,15 @@ class Container implements ContainerInterface
                 } else {
                     $isHinted = $parameterReflection->getClass() !== null;
                     $isOptional = $parameterReflection->isOptional();
+                    $isNullable = $parameterReflection->allowsNull();
 
                     /** If the Parameter is hinted and the container holds the entry, use it */
                     if($isHinted && $container->has($parameterClassName = $parameterReflection->getClass()->getName())) {
                         $callParameters[] = $container->get($parameterClassName);
 
                     /** The container does not hold the entry, but it is optional, so take the default */
-                    } elseif($isOptional) {
-                        $callParameters[] = $parameterReflection->getDefaultValue();
+                    } elseif($isOptional || $isNullable) {
+                        $callParameters[] = $isOptional ? $parameterReflection->getDefaultValue() : null;
 
                     } else {
                         throw new DependencyException(sprintf('%s could not be resolved', $parameterReflection->getName()));

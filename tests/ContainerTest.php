@@ -357,4 +357,130 @@ class ContainerTest extends TestCase
         $container->autowire(function (string $class) {
         })($container);
     }
+
+    public function testAutowireHandlesArrayCallablesStaticMethods(): void
+    {
+        $class = new class
+        {
+            public static function foo(stdClass $class): string
+            {
+                return get_class($class);
+            }
+        };
+
+        $container = new Container();
+        $container->set(stdClass::class, new stdClass());
+        $container->set('autowired', $container->autowire([$class, 'foo']));
+
+        $this->assertEquals(stdClass::class, $container->get('autowired'));
+    }
+
+    public function testAutowireHandlesArrayCallablesInstanceMethods(): void
+    {
+        $class = new class
+        {
+            public function foo(stdClass $class): string
+            {
+                return get_class($class);
+            }
+        };
+
+        $container = new Container();
+        $container->set(stdClass::class, new stdClass());
+        $container->set('autowired', $container->autowire([$class, 'foo']));
+
+        $this->assertEquals(stdClass::class, $container->get('autowired'));
+    }
+
+    public function testAutowireAutoloadsClassIfPassedAsStringAndNotManagedByController(): void
+    {
+        $class = get_class(new class(new stdClass())
+        {
+
+            protected $class;
+
+            public function __construct(stdClass $class)
+            {
+                $this->class = $class;
+            }
+
+            public function foo(): string
+            {
+                return get_class($this->class);
+            }
+        });
+
+        $container = new Container();
+        $container->set(stdClass::class, new stdClass());
+        $container->set('autowired', $container->autowire([$class, 'foo']));
+
+        $this->assertEquals(stdClass::class, $container->get('autowired'));
+    }
+
+    public function testAutowiringThrowsExceptionIfHandlesNonPublicMethods(): void
+    {
+        $this->expectExceptionMessage('$wireable must be a full qualified classname or callable');
+
+        $class = new class
+        {
+            protected function foo(stdClass $class): string
+            {
+                return get_class($class);
+            }
+        };
+
+        $container = new Container();
+        $container->set('autowired', $container->autowire([$class, 'foo']));
+    }
+
+    public function testAutowiringUsesParametersArray(): void
+    {
+        $container = new Container();
+        $container->set('foo', $container->autowire(function (stdClass $foo) {
+            return $foo;
+        }, ['foo' => new stdClass()]));
+
+        $this->assertInstanceOf(stdClass::class, $container->get('foo'));
+    }
+
+    public function testAutowiringPriorizesParametersArrayOverContainer(): void
+    {
+        $container = new Container();
+        $container->set(stdClass::class, function () {
+            $class = new stdClass();
+            $class->foo = 'bar';
+
+            return $class;
+        });
+        $container->set('foo', $container->autowire(function (stdClass $foo) {
+            return $foo;
+        }, ['foo' => new stdClass()]));
+
+        $this->assertInstanceOf(stdClass::class, $container->get('foo'));
+        $this->assertObjectNotHasAttribute('foo', $container->get('foo'));
+    }
+
+    public function testAutowiringHandlesOptionalParameters():void
+    {
+        $container = new Container();
+        $container->set('autowired', $container->autowire(function (stdClass $class = null) {
+            return $class;
+        }));
+
+        $this->assertNull($container->get('autowired'));
+    }
+
+    public function testAutowiringHandlesNullableParameters():void
+    {
+        $container = new Container();
+        $container->set('nullableClass', $container->autowire(function (?stdClass $class) {
+            return $class;
+        }));
+        $container->set('nullableScalar', $container->autowire(function (?string $foo) {
+            return $foo;
+        }));
+
+        $this->assertNull($container->get('nullableClass'));
+        $this->assertNull($container->get('nullableScalar'));
+    }
 }
