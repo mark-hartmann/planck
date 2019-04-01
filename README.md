@@ -10,7 +10,7 @@ Planck is a minimalistic dependency injection container with [PSR-11](https://ww
     - `$container->factory()` 
         - Can be used to mark a callable as being a factory service. If so, each time the entry gets requested, a new instance is returned
     - `$container->preserve()` 
-        - Can be used to protect a function from being used by the container as a service factory.
+        - Can be used to protect/preserve a function from being used by the container as a service factory.
     - `$container->autowire()` 
         - Can be used to autowire functions and classes.
 
@@ -114,7 +114,7 @@ wrap anonymous functions with the `preserve()` method to store them as
 parameters:
 
 ```php
-$container['random_bytes'] = $container->protect(function () {
+$container['random_bytes'] = $container->preserve(function () {
     return random_bytes(4);
 });
 ```
