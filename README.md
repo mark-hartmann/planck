@@ -197,3 +197,20 @@ This also works with already instanciated objects:
 // adding the required classes to the container ...
 $container->autowire([$homeControllerInstance, 'index']);
 ```
+
+## Hinted parameters & autowiring:
+
+With php 5 and 7 named parameters were added. Planck can handle builtin and normal hints.  
+The following constellations are possible. 
+
+```
+function ($foo);                             // unresolvable, must be passed directly to the parameters
+function (string|int|float|array|bool $foo); // unresolvable, must be passed directly to the parameters
+
+function (Foo $foo);                         // hinted, required
+function (Foo $foo = null);                  // hinted, optional
+function (?Foo $foo);                        // hinted, nullable
+```
+
+If no value could be found for nullable parameters, null is passed.  
+If no value could be found for optional parameters, the default value is passed.
