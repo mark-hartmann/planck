@@ -50,9 +50,7 @@ class Container implements ContainerInterface
             throw new NotFoundException(sprintf('No entry was found for "%s" identifier', $id));
         }
 
-        /**
-         * A normal entry (no object, preserved callable or object without __invoke method) gets returned immediately
-         */
+        /** A normal entry (no object, preserved callable or object without __invoke method) gets returned immediately */
         if (!is_object($this->values[$id]) || $this->preserved->contains($this->values[$id]) || !is_callable($this->values[$id])) {
             return $this->values[$id];
         }
@@ -171,7 +169,7 @@ class Container implements ContainerInterface
          * @return mixed
          */
         $extended = function (\Psr\Container\ContainerInterface $container) use ($callable, $factory) {
-            # if the entry to extend is not a callable, we pass it as is
+            /** if the entry to extend is not a callable, we pass it as is */
             $previous = is_callable($factory) ? $factory($container) : $factory;
 
             return $callable($container, $previous);
@@ -217,6 +215,8 @@ class Container implements ContainerInterface
          * too much memory and time. Therefore, the instances are created once and passed to the
          * service factory via use().
          *
+         * @todo: Handle passedByReference parameters? Reference parameters are not encouraged
+         *
          * @param \Psr\Container\ContainerInterface $container
          *
          * @return mixed|object
@@ -231,20 +231,33 @@ class Container implements ContainerInterface
                     $callParameters[] = $parameters[$parameterReflection->getName()];
 
                 } else {
-                    $isHinted = $parameterReflection->getClass() !== null;
-                    $isOptional = $parameterReflection->isOptional();
-                    $isNullable = $parameterReflection->allowsNull();
 
-                    /** If the Parameter is hinted and the container holds the entry, use it */
-                    if($isHinted && $container->has($parameterClassName = $parameterReflection->getClass()->getName())) {
-                        $callParameters[] = $container->get($parameterClassName);
+                    $isHinted = $parameterReflection->getType();
 
-                    /** The container does not hold the entry, but it is optional, so take the default */
-                    } elseif($isOptional || $isNullable) {
-                        $callParameters[] = $isOptional ? $parameterReflection->getDefaultValue() : null;
+                    /** If the parameter is hinted (stdClass, ...) and NOT built in (string, int, array, ...)  */
+                    if ($isHinted && !$isHinted->isBuiltin()) {
+                        /** If the container manages the hinted class */
+                        if ($container->has($isHinted->getName())) {
+                            $callParameters[] = $container->get($isHinted->getName());
+
+                            /** If the parameter allows null (?stdClass, ...) OR is optional (stdClass $class = null) */
+                        } elseif ($isHinted->allowsNull() || $parameterReflection->isOptional()) {
+                            $callParameters[] = $isHinted->allowsNull() ? null : $parameterReflection->getDefaultValue();
+                        } else {
+                            throw new DependencyException(sprintf('%s could not be resolved', $parameterReflection->getName()));
+                        }
 
                     } else {
-                        throw new DependencyException(sprintf('%s could not be resolved', $parameterReflection->getName()));
+                        /** If the parameter is hinted by nullable builtins (?string, ?int, ...) */
+                        if ($isHinted && $isHinted->allowsNull()) {
+                            $callParameters[] = null;
+
+                            /** If the parameter is optional ($str = 'string', $val = null, ...) */
+                        } elseif ($parameterReflection->isOptional()) {
+                            $callParameters[] = $parameterReflection->getDefaultValue();
+                        } else {
+                            throw new DependencyException(sprintf('%s could not be resolved', $parameterReflection->getName()));
+                        }
                     }
                 }
             }
@@ -256,6 +269,7 @@ class Container implements ContainerInterface
             if ($reflection instanceof ReflectionMethod) {
                 /** @var \Hartmann\Planck\ContainerInterface $container */
                 $object = is_object($wireable[0]) ? $wireable[0] : $container->autowire($wireable[0])($container);
+
                 return $reflection->invokeArgs($reflection->isStatic() ? null : $object, $callParameters);
             }
 
