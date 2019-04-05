@@ -24,14 +24,13 @@ class Container implements ContainerInterface
      * Container constructor.
      *
      * @param \Interop\Container\ServiceProviderInterface[] $providers
-     * @param mixed[]                                       $values
      */
-    public function __construct(array $providers = [], array $values = [])
+    public function __construct(array $providers = [])
     {
         $this->preserved = new SplObjectStorage();
         $this->factories = new SplObjectStorage();
 
-        $this->register($providers, $values);
+        $this->register($providers, []);
     }
 
     /**

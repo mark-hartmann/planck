@@ -35,9 +35,8 @@ class ContainerTest extends TestCase
      */
     public function testGetReturnsCorrectValue(): void
     {
-        $container = new Container([], [
-            'foo' => 123,
-        ]);
+        $container = new Container();
+        $container->set('foo', 123);
 
         $this->assertTrue($container->has('foo'));
         $this->assertFalse($container->has('bar'));
@@ -98,7 +97,7 @@ class ContainerTest extends TestCase
     /**
      * @throws \Hartmann\Planck\Exception\NotFoundException
      */
-    public function testRegisterSuccessfullyAddsServiceFactories(): void
+    public function testRegisterSuccessfullyAddsServiceFactoriesAndNonFactories(): void
     {
         $provider = new class implements ServiceProviderInterface
         {
@@ -109,6 +108,8 @@ class ContainerTest extends TestCase
                     'foo' => function () {
                         return 'bar';
                     },
+                    'bar' => 'foo',
+                    'callableFoo' => [self::class, 'resolveFoo']
                 ];
             }
 
@@ -116,11 +117,18 @@ class ContainerTest extends TestCase
             {
                 return [];
             }
+
+            public static function resolveFoo(): string
+            {
+                return 'bar';
+            }
         };
 
         $container = new Container([$provider]);
 
-        $this->assertIsString($container->get('foo'));
+        $this->assertEquals('bar', $container->get('foo'));
+        $this->assertEquals('foo', $container->get('bar'));
+        $this->assertEquals('bar', $container->get('callableFoo'));
     }
 
     /**
@@ -161,9 +169,8 @@ class ContainerTest extends TestCase
      */
     public function testAlreadyDefinedEntryCanBeExtended(): void
     {
-        $container = new Container([], [
-            'foo' => 'bar',
-        ]);
+        $container = new Container;
+        $container->set('foo', 'bar');
 
         $container->extend('foo', function (ContainerInterface $container, $prev) {
             return 'foo'.$prev;
@@ -190,9 +197,9 @@ class ContainerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        (new Container([], [
-            'foo' => 'bar',
-        ]))->extend('foo', 'noncallable');
+        $container = new Container;
+        $container->set('foo', 'bar');
+        $container->extend('foo', 'noncollable');
     }
 
     /**
@@ -309,9 +316,8 @@ class ContainerTest extends TestCase
             return $class;
         };
 
-        $container = new Container([], [
-            stdClass::class => new stdClass(),
-        ]);
+        $container = new Container;
+        $container->set(stdClass::class, new stdClass());
 
         $container->set('autowiredFunction', $container->autowire($function));
 
