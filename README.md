@@ -194,8 +194,23 @@ $container->autowire([HomeController::class, 'index']);
 
 This also works with already instanciated objects:
 ```
-// adding the required classes to the container ...
 $container->autowire([$homeControllerInstance, 'index']);
+```
+
+Extended classes behave normally as long as the dependencies are registered in the container.
+
+```php
+class Request
+{
+    public function __construct(string $method, UriInterface $uri, HeadersInterface $headers, ...);
+}
+
+class CreateUserRequest extends Request {
+    ... 
+}
+
+// adding the required classes to the container ...
+$container->autowire(CreateUserRequest::class, ['method' => $requestMethod]);
 ```
 
 ## Hinted parameters & autowiring:
@@ -214,3 +229,5 @@ function (?Foo $foo);                        // hinted, nullable
 
 If no value could be found for nullable parameters, null is passed.  
 If no value could be found for optional parameters, the default value is passed.
+
+**Referenced parameters are NOT supported**, you have to register such entries using the `set` method.
