@@ -114,9 +114,9 @@ wrap anonymous functions with the `preserve()` method to store them as
 parameters:
 
 ```php
-$container['random_bytes'] = $container->preserve(function () {
+$container->set('random_bytes', $container->preserve(function () {
     return random_bytes(4);
-});
+}));
 ```
 
 ## Modifying Services after Definition
