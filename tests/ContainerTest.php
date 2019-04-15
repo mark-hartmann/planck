@@ -109,7 +109,7 @@ class ContainerTest extends TestCase
                         return 'bar';
                     },
                     'bar' => 'foo',
-                    'callableFoo' => [self::class, 'resolveFoo']
+                    'callableFoo' => [self::class, 'resolveFoo'],
                 ];
             }
 
@@ -466,7 +466,7 @@ class ContainerTest extends TestCase
         $this->assertObjectNotHasAttribute('foo', $container->get('foo'));
     }
 
-    public function testAutowiringHandlesOptionalParameters():void
+    public function testAutowiringHandlesOptionalParameters(): void
     {
         $container = new Container();
         $container->set('autowired', $container->autowire(function (stdClass $class = null) {
@@ -476,7 +476,7 @@ class ContainerTest extends TestCase
         $this->assertNull($container->get('autowired'));
     }
 
-    public function testAutowiringHandlesNullableParameters():void
+    public function testAutowiringHandlesNullableParameters(): void
     {
         $container = new Container();
         $container->set('nullableClass', $container->autowire(function (?stdClass $class) {
@@ -488,5 +488,20 @@ class ContainerTest extends TestCase
 
         $this->assertNull($container->get('nullableClass'));
         $this->assertNull($container->get('nullableScalar'));
+    }
+
+    public function testAutowiringWorksWithoutDefinedConstructor(): void
+    {
+        $class = get_class(new class()
+        {
+            public function foo(): string
+            {
+                return 'foo';
+            }
+        });
+
+        $container = new Container();
+
+        $this->assertEquals('foo', $container->autowire($class)($container)->foo());
     }
 }

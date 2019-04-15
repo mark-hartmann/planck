@@ -199,7 +199,12 @@ class Container implements ContainerInterface
         try {
             if (is_string($wireable)) {
                 $reflection = new ReflectionClass($wireable);
-                $reflectedParameters = $reflection->getConstructor()->getParameters();
+
+                if($refMethod = $reflection->getConstructor()) {
+                    $reflectedParameters = $refMethod->getParameters();
+                } else {
+                    $reflectedParameters = [];
+                }
             } else {
                 $reflection = is_array($wireable) ? new ReflectionMethod($wireable[0], $wireable[1]) : new ReflectionFunction($wireable);
                 $reflectedParameters = $reflection->getParameters();
