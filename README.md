@@ -193,7 +193,7 @@ $container->autowire([HomeController::class, 'index']);
 ```
 
 This also works with already instanciated objects:
-```
+```php
 $container->autowire([$homeControllerInstance, 'index']);
 ```
 
@@ -218,7 +218,7 @@ $container->autowire(CreateUserRequest::class, ['method' => $requestMethod]);
 With php 5 and 7 named parameters were added. Planck can handle builtin and normal hints.  
 The following constellations are possible. 
 
-```
+```php
 function ($foo);                             // unresolvable, must be passed directly to the parameters
 function (string|int|float|array|bool $foo); // unresolvable, must be passed directly to the parameters
 
