@@ -61,11 +61,15 @@ class ContainerTest extends TestCase
         $container->set('factory', $container->factory(function () {
             return random_int(1000, 9999);
         }));
+        $container->set('aurowiredFactory', $container->autowire($container->factory(function () {
+            return random_int(1000, 9999);
+        })));
 
         $this->assertEquals(1234, $container->get('scalar'));
         $this->assertIsObject($container->get('object'));
         $this->assertIsCallable($container->get('preserved'));
         $this->assertNotSame($container->get('factory'), $container->get('factory'));
+        $this->assertNotSame($container->get('aurowiredFactory'), $container->get('aurowiredFactory'));
     }
 
     public function testGetThrowsNotFoundExceptionIfEntryNotFound(): void
@@ -110,6 +114,9 @@ class ContainerTest extends TestCase
                     },
                     'bar' => 'foo',
                     'callableFoo' => [self::class, 'resolveFoo'],
+                    stdClass::class => function ($container) {
+                        return $container->autowire(stdClass::class);
+                    },
                 ];
             }
 
@@ -129,6 +136,7 @@ class ContainerTest extends TestCase
         $this->assertEquals('bar', $container->get('foo'));
         $this->assertEquals('foo', $container->get('bar'));
         $this->assertEquals('bar', $container->get('callableFoo'));
+        $this->assertInstanceOf(stdClass::class, $container->get(stdClass::class));
     }
 
     /**
@@ -326,6 +334,7 @@ class ContainerTest extends TestCase
 
     /**
      * @throws \Hartmann\Planck\Exception\NotFoundException
+     * @deprecated You can autowire an factory by using autowire(factory())
      */
     public function testAutowiredCanBeUtilizedAsFactory(): void
     {
@@ -502,6 +511,24 @@ class ContainerTest extends TestCase
 
         $container = new Container();
 
-        $this->assertEquals('foo', $container->autowire($class)($container)->foo());
+        $autowired = $container->autowire($class);
+
+        $this->assertEquals('foo', $autowired($container)->foo());
+    }
+
+    public function testAutowiringWorksWithAutowiredParameter(): void
+    {
+        $class = get_class(new class(new stdClass())
+        {
+            public function __construct(stdClass $class)
+            {
+            }
+        });
+
+        $container = new Container();
+        $container->set(stdClass::class, $container->autowire(stdClass::class));
+        $container->set($class, $container->autowire($class));
+
+        $this->assertInstanceOf($class, $container->get($class));
     }
 }

@@ -3,6 +3,7 @@
 namespace Hartmann\Planck;
 
 
+use Closure;
 use Hartmann\Planck\Exception\DependencyException;
 use Hartmann\Planck\Exception\NotFoundException;
 use InvalidArgumentException;
@@ -18,6 +19,7 @@ class Container implements ContainerInterface
 {
     protected $values = [];
     protected $preserved;
+    protected $autowired;
     protected $factories;
 
     /**
@@ -29,6 +31,7 @@ class Container implements ContainerInterface
     {
         $this->preserved = new SplObjectStorage();
         $this->factories = new SplObjectStorage();
+        $this->autowired = new SplObjectStorage();
 
         $this->register($providers, []);
     }
@@ -49,19 +52,25 @@ class Container implements ContainerInterface
             throw new NotFoundException(sprintf('No entry was found for "%s" identifier', $id));
         }
 
-        /** A normal entry (no object, preserved callable or object without __invoke method) gets returned immediately */
-        if (!is_object($this->values[$id]) || $this->preserved->contains($this->values[$id]) || !is_callable($this->values[$id])) {
+        if (!($this->values[$id] instanceof Closure) || $this->preserved->contains($this->values[$id])) {
             return $this->values[$id];
         }
 
-        /** A factory returns a new instance each time! */
+        if ($this->autowired->contains($this->values[$id])) {
+            $this->values[$id] = $this->values[$id]($this);
+
+            return $this->get($id);
+        }
+
         if ($this->factories->contains($this->values[$id])) {
+            /** @todo Should we pass $this? */
             return $this->values[$id]($this);
         }
 
+        /** If it is a service factory, "extract" the entry */
         $this->values[$id] = $this->values[$id]($this);
 
-        return $this->values[$id];
+        return $this->get($id);
     }
 
     /**
@@ -82,6 +91,7 @@ class Container implements ContainerInterface
             if (is_object($this->values[$id])) {
                 $this->preserved->detach($this->values[$id]);
                 $this->factories->detach($this->values[$id]);
+                $this->autowired->detach($this->values[$id]);
             }
 
             unset($this->values[$id]);
@@ -101,7 +111,7 @@ class Container implements ContainerInterface
      */
     public function has($id): bool
     {
-        return isset($this->values[$id]);
+        return array_key_exists($id, $this->values);
     }
 
     /**
@@ -199,20 +209,15 @@ class Container implements ContainerInterface
         try {
             if (is_string($wireable)) {
                 $reflection = new ReflectionClass($wireable);
-
-                if($refMethod = $reflection->getConstructor()) {
-                    $reflectedParameters = $refMethod->getParameters();
-                } else {
-                    $reflectedParameters = [];
-                }
             } else {
                 $reflection = is_array($wireable) ? new ReflectionMethod($wireable[0], $wireable[1]) : new ReflectionFunction($wireable);
-                $reflectedParameters = $reflection->getParameters();
             }
 
         } catch (ReflectionException $e) {
             throw new DependencyException(sprintf('Class/Function %s could not be reflected', get_class($wireable)));
         }
+
+        $planck = $this;
 
         /**
          * If the autowired entry is used as a factory, repeatedly instantiating a reflection class would take
@@ -223,12 +228,19 @@ class Container implements ContainerInterface
          *
          * @param \Psr\Container\ContainerInterface $container
          *
-         * @return mixed|object
+         * @return Closure
          */
-        return function (\Psr\Container\ContainerInterface $container) use ($reflection, $reflectedParameters, $parameters, $wireable) {
+        $autowiredCallable = function (\Psr\Container\ContainerInterface $container) use ($reflection, $parameters, $wireable, $planck) {
+
+            if ($reflection instanceof ReflectionClass) {
+                $reflectionParameters = $reflection->getConstructor() ? $reflection->getConstructor()->getParameters() : [];
+            } else {
+                $reflectionParameters = $reflection->getParameters();
+            }
 
             $callParameters = [];
-            foreach ($reflectedParameters as $i => $parameterReflection) {
+
+            foreach ($reflectionParameters as $parameterReflection) {
 
                 /** If the parameters name is given in $parameters, it counts as resolved. */
                 if (isset($parameters[$parameterReflection->getName()])) {
@@ -237,33 +249,51 @@ class Container implements ContainerInterface
                 } else {
 
                     $isHinted = $parameterReflection->getType();
+                    $isBuiltIn = $isHinted && $isHinted->isBuiltin();
+                    $isOptional = $parameterReflection->isOptional();
+                    $allowsNull = $isHinted && $isHinted->allowsNull();
+                    $parameterName = $parameterReflection->getName();
 
-                    /** If the parameter is hinted (stdClass, ...) and NOT built in (string, int, array, ...)  */
-                    if ($isHinted && !$isHinted->isBuiltin()) {
-                        /** If the container manages the hinted class */
-                        if ($container->has($isHinted->getName())) {
-                            $callParameters[] = $container->get($isHinted->getName());
-
-                            /** If the parameter allows null (?stdClass, ...) OR is optional (stdClass $class = null) */
-                        } elseif ($isHinted->allowsNull() || $parameterReflection->isOptional()) {
-                            $callParameters[] = $isHinted->allowsNull() ? null : $parameterReflection->getDefaultValue();
-                        } else {
-                            throw new DependencyException(sprintf('%s could not be resolved', $parameterReflection->getName()));
-                        }
-
-                    } else {
-                        /** If the parameter is hinted by nullable builtins (?string, ?int, ...) */
-                        if ($isHinted && $isHinted->allowsNull()) {
+                    if ($isBuiltIn) {
+                        if ($allowsNull) {
+                            /** If the parameter is hinted by nullable builtins (?string, ?int, ...) */
                             $callParameters[] = null;
 
+                        } elseif ($isOptional) {
                             /** If the parameter is optional ($str = 'string', $val = null, ...) */
-                        } elseif ($parameterReflection->isOptional()) {
                             $callParameters[] = $parameterReflection->getDefaultValue();
+
                         } else {
-                            throw new DependencyException(sprintf('%s could not be resolved', $parameterReflection->getName()));
+                            throw new DependencyException(sprintf('%s could not be resolved', $parameterName));
+                        }
+
+                    } elseif ($isHinted && !$isBuiltIn) {
+
+                        if ($container->has($isHinted->getName())) {
+                            /** If the container manages the hinted class */
+                            $callParameters[] = $container->get($isHinted->getName());
+
+                        } elseif ($allowsNull || $isOptional) {
+                            /** If the parameter allows null (?stdClass, ...) OR is optional (stdClass $class = null) */
+                            $callParameters[] = $allowsNull ? null : $parameterReflection->getDefaultValue();
+
+                        } else {
+                            throw new DependencyException(sprintf('%s could not be resolved', $parameterName));
                         }
                     }
                 }
+            }
+
+            /** If the wireable was previously declared as factory */
+            if (is_object($wireable) && $this->factories->contains(/** @var \Closure $wireable */ $wireable)) {
+                $factory = function () use ($reflection, $callParameters) {
+                    return $reflection->invokeArgs($callParameters);
+                };
+
+                $planck->factories->detach($wireable);
+                $planck->factories->attach($factory);
+
+                return $factory;
             }
 
             if ($reflection instanceof ReflectionFunction) {
@@ -278,7 +308,12 @@ class Container implements ContainerInterface
             }
 
             return $reflection->newInstanceArgs($callParameters);
+
         };
+
+        $this->autowired->attach($autowiredCallable);
+
+        return $autowiredCallable;
     }
 
     /**
@@ -298,6 +333,7 @@ class Container implements ContainerInterface
 
             foreach ($factories as $key => $factory) {
                 if (is_callable($factory)) {
+
                     /**
                      * Because $callable can also be given in the [object, 'method'] syntax, the callable execution
                      * gets wrapped in another anonymous function.
@@ -309,7 +345,6 @@ class Container implements ContainerInterface
                     $this->values[$key] = function (\Psr\Container\ContainerInterface $container) use ($factory) {
                         return call_user_func($factory, $container);
                     };
-
                 } else {
                     /** A factory MAY return a non-callable, in this case we act like it is a normal entry. */
                     $this->set($key, $factory);
