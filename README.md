@@ -268,3 +268,6 @@ $container->set('autowired', $container->autowire(function(Foo $foo, Bar $bar) {
 
 $value = $container->get('autowired');
 ```
+
+After the class has been implicitly loaded, it is stored directly in the container.  
+Only classes can be loaded implicitly.
