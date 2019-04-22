@@ -219,15 +219,52 @@ With php 5 and 7 named parameters were added. Planck can handle builtin and norm
 The following constellations are possible. 
 
 ```php
-function ($foo);                             // unresolvable, must be passed directly to the parameters
-function (string|int|float|array|bool $foo); // unresolvable, must be passed directly to the parameters
+// unresolvable, must be passed directly to the parameters
+function ($foo) {  
+}                             
 
-function (Foo $foo);                         // hinted, required
-function (Foo $foo = null);                  // hinted, optional
-function (?Foo $foo);                        // hinted, nullable
+// unresolvable, must be passed directly to the parameters
+function (string|int|float|array|bool $foo) {  
+}
+
+// hinted, required
+function (Foo $foo) { 
+}                         
+
+// hinted, optional
+function (Foo $foo = null) {  
+}                  
+
+// hinted, nullable
+function (?Foo $foo) {  
+}                        
 ```
 
 If no value could be found for nullable parameters, null is passed.  
 If no value could be found for optional parameters, the default value is passed.
 
 **Referenced parameters are NOT supported**, you have to register such entries using the `set` method.
+
+## Implicit autowiring:
+
+Planck also offers the option of implicit autowiring, i.e. classes that have not yet been stored in the container but are requested can be created automatically.  
+
+To activate this, the following method must be called:
+
+```php
+$container->enableImplicitAutowiring(true); // enable
+$container->enableImplicitAutowiring(false); // disable
+```
+
+Now the following can be called without errors:
+
+```php
+$container = new \Hartmann\Planck\Container
+$container->enableImplicitAutowiring(true);
+
+$container->set('autowired', $container->autowire(function(Foo $foo, Bar $bar) {
+    return ...
+}));
+
+$value = $container->get('autowired');
+```

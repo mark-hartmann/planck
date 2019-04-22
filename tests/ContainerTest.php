@@ -531,4 +531,17 @@ class ContainerTest extends TestCase
 
         $this->assertInstanceOf($class, $container->get($class));
     }
+
+    public function testImplicitAutowiring(): void
+    {
+        $container = new Container();
+        $container->enableImplicitAutowiring(true);
+
+        $container->set('autowired', $container->autowire(function (stdClass $class) {
+            return $class;
+        }));
+
+        $this->assertInstanceOf(stdClass::class, $container->get('autowired'));
+        $this->assertInstanceOf(SplObjectStorage::class, $container->get(SplObjectStorage::class));
+    }
 }

@@ -21,6 +21,7 @@ class Container implements ContainerInterface
     protected $preserved;
     protected $autowired;
     protected $factories;
+    protected $implicitAutowiring = false;
 
     /**
      * Container constructor.
@@ -37,6 +38,20 @@ class Container implements ContainerInterface
     }
 
     /**
+     * Enables or disables implicit autowiring.
+     *
+     * @param bool $value
+     *
+     * @return \Hartmann\Planck\Container
+     */
+    public function enableImplicitAutowiring(bool $value): self
+    {
+        $this->implicitAutowiring = $value;
+
+        return $this;
+    }
+
+    /**
      * Finds an entry of the container by its identifier and returns it.
      *
      * @param string $id Identifier of the entry to look for.
@@ -49,7 +64,11 @@ class Container implements ContainerInterface
     public function get($id)
     {
         if (!$this->has($id)) {
-            throw new NotFoundException(sprintf('No entry was found for "%s" identifier', $id));
+            if ($this->implicitAutowiring === false || !class_exists($id)) {
+                throw new NotFoundException(sprintf('No entry was found for "%s" identifier', $id));
+            }
+
+            $this->set($id, $this->autowire($id));
         }
 
         if (!($this->values[$id] instanceof Closure) || $this->preserved->contains($this->values[$id])) {
@@ -210,7 +229,8 @@ class Container implements ContainerInterface
             if (is_string($wireable)) {
                 $reflection = new ReflectionClass($wireable);
             } else {
-                $reflection = is_array($wireable) ? new ReflectionMethod($wireable[0], $wireable[1]) : new ReflectionFunction($wireable);
+                $reflection = is_array($wireable) ? new ReflectionMethod($wireable[0],
+                    $wireable[1]) : new ReflectionFunction($wireable);
             }
 
         } catch (ReflectionException $e) {
@@ -230,7 +250,12 @@ class Container implements ContainerInterface
          *
          * @return Closure
          */
-        $autowiredCallable = function (\Psr\Container\ContainerInterface $container) use ($reflection, $parameters, $wireable, $planck) {
+        $autowiredCallable = function (\Psr\Container\ContainerInterface $container) use (
+            $reflection,
+            $parameters,
+            $wireable,
+            $planck
+        ) {
 
             if ($reflection instanceof ReflectionClass) {
                 $reflectionParameters = $reflection->getConstructor() ? $reflection->getConstructor()->getParameters() : [];
@@ -269,7 +294,7 @@ class Container implements ContainerInterface
 
                     } elseif ($isHinted && !$isBuiltIn) {
 
-                        if ($container->has($isHinted->getName())) {
+                        if ($container->has($isHinted->getName()) || ($planck->implicitAutowiring === true && class_exists($isHinted->getName()))) {
                             /** If the container manages the hinted class */
                             $callParameters[] = $container->get($isHinted->getName());
 
@@ -370,9 +395,10 @@ class Container implements ContainerInterface
                      * The extendsion factory is wrapped by an anonymous function to ensure that the factory can be executed properly
                      * even if it comes with the array-callable syntax.
                      */
-                    $this->values[$key] = $this->extend($key, function (\Psr\Container\ContainerInterface $container, $previous) use ($extensionFactory) {
-                        return call_user_func($extensionFactory, $container, $previous);
-                    });
+                    $this->values[$key] = $this->extend($key,
+                        function (\Psr\Container\ContainerInterface $container, $previous) use ($extensionFactory) {
+                            return call_user_func($extensionFactory, $container, $previous);
+                        });
 
                 } else {
                     $this->values[$key] = $extensionFactory;
