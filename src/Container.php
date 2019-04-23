@@ -6,6 +6,7 @@ namespace Hartmann\Planck;
 use Closure;
 use Hartmann\Planck\Exception\DependencyException;
 use Hartmann\Planck\Exception\NotFoundException;
+use Hartmann\ResolveStrategy\ResolveStrategyInterface;
 use InvalidArgumentException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -21,6 +22,8 @@ class Container implements ContainerInterface
     protected $preserved;
     protected $autowired;
     protected $factories;
+    /** @var \Hartmann\ResolveStrategy\ResolveStrategyInterface[] */
+    protected $resolveStrategies = [];
     protected $implicitAutowiring = false;
 
     /**
@@ -52,6 +55,18 @@ class Container implements ContainerInterface
     }
 
     /**
+     * @param \Hartmann\ResolveStrategy\ResolveStrategyInterface $strategy
+     *
+     * @return \Hartmann\Planck\Container
+     */
+    public function addResolveStrategy(ResolveStrategyInterface $strategy): self
+    {
+        $this->resolveStrategies[] = $strategy;
+
+        return $this;
+    }
+
+    /**
      * Finds an entry of the container by its identifier and returns it.
      *
      * @param string $id Identifier of the entry to look for.
@@ -68,7 +83,16 @@ class Container implements ContainerInterface
                 throw new NotFoundException(sprintf('No entry was found for "%s" identifier', $id));
             }
 
-            $this->set($id, $this->autowire($id));
+            $resolveStrategy = null;
+            foreach ($this->resolveStrategies as $strategy) {
+                if ($strategy->suitable($id)) {
+                    $resolveStrategy = $strategy;
+
+                    continue;
+                }
+            }
+
+            $this->set($id, $resolveStrategy ? $resolveStrategy->resolve($this, $id) : $this->autowire($id));
         }
 
         if (!($this->values[$id] instanceof Closure) || $this->preserved->contains($this->values[$id])) {

@@ -271,3 +271,36 @@ $value = $container->get('autowired');
 
 After the class has been implicitly loaded, it is stored directly in the container.  
 Only classes can be loaded implicitly.
+
+## Resolve Strategies
+Resolve strategies can be used to automatically resolve classes that can be similarly created.  
+For example, if you use FormRequests to validate input fields, they can be resolved using a corresponding strategy without having to create a service factory for each one.
+
+This could look like this:
+```php
+use \Hartmann\ResolveStrategy\ResolveStrategyInterface
+
+class RequestResolveStrategy implements ResolveStrategyInterface
+{
+    public function suitable(string $class): bool
+    {
+        return method_exists($class, 'createFromEnvironment') && in_array(FormRequest::class, class_parents($class));
+    }
+
+    public function resolve(\Psr\Container\ContainerInterface $container, string $class)
+    {
+        return call_user_func([$class, 'createFromEnvironment'], $container->get('environment'));
+    }
+}
+
+$container = new \Hartmann\Planck\Container();
+
+$container->enableImplicitAutowiring(true);
+$container->addResolveStrategy(new RequestResolveStrategy());
+
+$container->get(CreateUserFormRequest::class);
+$container->get(DeletePostFormRequest::class);
+$container->get(LoginFormRequest::class);
+```
+
+___For this to work, implicit autowiring must be enabled.___

@@ -544,4 +544,24 @@ class ContainerTest extends TestCase
         $this->assertInstanceOf(stdClass::class, $container->get('autowired'));
         $this->assertInstanceOf(SplObjectStorage::class, $container->get(SplObjectStorage::class));
     }
+
+    public function testResolveStrategies(): void
+    {
+        $container = new Container();
+        $container->enableImplicitAutowiring(true);
+        $container->addResolveStrategy(new class implements \Hartmann\ResolveStrategy\ResolveStrategyInterface
+        {
+            public function resolve(ContainerInterface $container, string $class)
+            {
+                return new $class;
+            }
+
+            public function suitable(string $class): bool
+            {
+                return $class === stdClass::class;
+            }
+        });
+
+        $this->assertInstanceOf(stdClass::class, $container->get(stdClass::class));
+    }
 }
