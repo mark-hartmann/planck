@@ -1,3 +1,6 @@
+[![Latest Stable Version](https://poser.pugx.org/hartmann/planck/v/stable)](https://packagist.org/packages/hartmann/planck) 
+[![License](https://poser.pugx.org/hartmann/planck/license)](https://packagist.org/packages/hartmann/planck)
+
 # Planck
 
 Planck is a minimalistic dependency injection container with [PSR-11](https://www.php-fig.org/psr/psr-11/)[+](https://github.com/container-interop/service-provider) support, (heavily) inspired by Pimple/Simplex. For now, i even use most of their documentation, but i'll change that later.
